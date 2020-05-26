@@ -29,6 +29,12 @@
     "email": "w.zengkai@gmail.com",
     "url": "https://github.com/KayneWang"
   },
+  "repository": {
+    "url": "https://github.com/KayneWang/local-terminal",
+    "type": "git"
+  },
+  "homepage": "https://github.com/KayneWang/local-terminal",
+  "bugs": "https://github.com/KayneWang/local-terminal/issues",
   "devDependencies": {
     "@babel/core": "^7.9.6",
     "@storybook/addon-info": "^5.3.19",
