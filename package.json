@@ -1,0 +1,42 @@
+{
+  "name": "local-terminal",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "xterm",
+    "terminal",
+    "local",
+    "react"
+  ],
+  "dependencies": {
+    "father-build": "^1.18.0",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "xterm": "^4.6.0",
+    "xterm-addon-web-links": "^0.4.0"
+  },
+  "scripts": {
+    "build": "father-build",
+    "storybook": "start-storybook"
+  },
+  "author": {
+    "name": "KayneWang",
+    "email": "w.zengkai@gmail.com",
+    "url": "https://github.com/KayneWang"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.9.6",
+    "@storybook/addon-info": "^5.3.19",
+    "@storybook/react": "^5.3.19",
+    "babel-loader": "^8.1.0",
+    "react-docgen-typescript-loader": "^3.7.2",
+    "ts-loader": "^7.0.5",
+    "typescript": "^3.9.3"
+  },
+  "license": "MIT"
+}
