@@ -6,8 +6,13 @@ interface ITermSize {
     rows: number;
 }
 
-interface IOptions extends ITerminalOptions {
+interface IActivePrompt {
     prompt?: string;
+    continuationPrompt?: string;
+}
+
+interface IOptions extends ITerminalOptions {
+    prompt?: IActivePrompt;
 }
 
 class LocalTerminal {
@@ -15,7 +20,7 @@ class LocalTerminal {
     private _cursor: number;
     private _input: string;
     private _termSize: ITermSize;
-    private _prompt: string;
+    private _activePrompt: IActivePrompt;
 
     constructor(term: Terminal, option: IOptions = {}) {
         this.term = term;
@@ -27,7 +32,7 @@ class LocalTerminal {
             rows: term.rows
         }
 
-        this._prompt = option.prompt
+        this._activePrompt = option.prompt
 
         this.init()
     }
@@ -50,10 +55,8 @@ class LocalTerminal {
 
     writeData(data: string) {
         const ord = data.charCodeAt(0)
-        let ofs
 
         if (ord === 0x1b) {
-            console.log(data.substr(1))
             switch (data.substr(1)) {
                 case '[A': // Up arrow
                     // TODO: 上一条历史命令
@@ -89,8 +92,14 @@ class LocalTerminal {
 
             // Special characters
         } else if (ord < 32 || ord === 0x7f) {
-            // TODO
-            console.log(data)
+            switch (data) {
+                case '\r': // Enter
+                    console.log('enter')
+                    break
+                case '\x7F': // Backspace
+                    this.handleCursorEarse(true)
+                    break
+            }
         } else {
             // Basic input
             this.handleCursorInster(data)
@@ -101,19 +110,31 @@ class LocalTerminal {
      * cursor move
      */
     handleCursorMove(dir: number) {
-        // TODO
-        console.log('cursor move', dir)
+        let num = 0
+        if (dir > 0) {
+            // right move, if current cursor location equal input length, should not move
+            num = Math.min(dir, this._input.length - this._cursor)
+        } else if (dir < 0) {
+            // left move
+            num = Math.max(dir, -this._cursor)
+        }
+        this.setCursor(this._cursor + num)
     }
 
     /**
      * Earse character at cursor location
      */
-    handleCursorEarse(backspace) {
+    handleCursorEarse(backspace: boolean) {
         const { _cursor, _input } = this
         if (backspace) { // cursor need backspace
-            // TODO
+            if (_cursor <= 0) return
+            const newInput = _input.substr(0, _cursor - 1) + _input.substr(_cursor)
+            this.clearInput()
+            this._cursor -= 1
+            this.setInput(newInput, false)
         } else {
-            // TODO
+            const newInput = _input.substr(0, _cursor) + _input.substr(_cursor + 1)
+            this.setInput(newInput)
         }
     }
 
@@ -121,8 +142,46 @@ class LocalTerminal {
      * Set the new cursor postion
      */
     setCursor(newCursor: number) {
-        // TODO
-        console.log('set cursor: ', newCursor)
+        if (newCursor < 0) {
+            newCursor = 0
+        }
+        if (newCursor > this._input.length) {
+            newCursor = this._input.length
+        }
+
+        const inputWithPrompt = this.applyPrompts(this._input)
+
+        // previous cursor position
+        const prevPromptOffset = this.applyPromptOffset(this._input, this._cursor)
+        const { col: prevCol, row: prevRow } = offsetToColRow(inputWithPrompt, prevPromptOffset, this._termSize.cols)
+
+        // next cursor position
+        const newPromptOffset = this.applyPromptOffset(this._input, newCursor)
+        const { col: newCol, row: newRow } = offsetToColRow(inputWithPrompt, newPromptOffset, this._termSize.cols)
+
+        // adjust vertically
+        if (newRow > prevRow) {
+            for (let i = prevRow; i < newRow; i++) {
+                this.term.write('\x1B[B')
+            }
+        } else {
+            for (let i = newRow; i < prevRow; i++) {
+                this.term.write('\x1B[A')
+            }
+        }
+
+        // adjust horizontally
+        if (newCol > prevCol) {
+            for (let i = prevCol; i < newCol; i++) {
+                this.term.write('\x1B[C')
+            }
+        } else {
+            for (let i = newCol; i < prevCol; i++) {
+                this.term.write('\x1B[D')
+            }
+        }
+
+        this._cursor = newCursor
     }
 
     /**
@@ -142,11 +201,11 @@ class LocalTerminal {
     setInput(newInput: string, clearInput: boolean = true) {
         if (clearInput) {
             // clear current input
-            // TODO
+            this.clearInput()
         }
 
         // write the new input with prompt
-        const newPrompt = this.applyPrompt(newInput)
+        const newPrompt = this.applyPrompts(newInput)
         this.print(newPrompt)
 
         // trim cursor overflow
@@ -171,13 +230,31 @@ class LocalTerminal {
         this._input = newInput
     }
 
-    applyPrompt(input: string): string {
-        const prompt = this._prompt || ''
-        return prompt + input
+    clearInput() {
+        const currentPrompt = this.applyPrompts(this._input)
+        const allRows = countLines(this._input, this._termSize.cols)
+        const promptCursor = this.applyPromptOffset(this._input, this._cursor)
+        const { row } = offsetToColRow(currentPrompt, promptCursor, this._termSize.cols)
+
+        const moveRows = allRows - row - 1
+        for (let i = 0; i < moveRows; i++) {
+            this.term.write('\x1B[E')
+        }
+
+        this.term.write('\x1B[K')
+        for (let i = 0; i < allRows; i++) {
+            this.term.write('\x1B[F\x1B[K')
+        }
+    }
+
+    applyPrompts(input: string): string {
+        const prompt = (this._activePrompt || {}).prompt || ''
+        const continuationPrompt = (this._activePrompt || {}).continuationPrompt || '> '
+        return prompt + input.replace(/\n/g, continuationPrompt)
     }
 
     applyPromptOffset(input: string, offset: number): number {
-        const newInput = this.applyPrompt(input.substr(0, offset))
+        const newInput = this.applyPrompts(input.substr(0, offset))
         return newInput.length
     }
 
