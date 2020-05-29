@@ -1,5 +1,5 @@
-import { Terminal, ITerminalOptions } from 'xterm'
-import { countLines, offsetToColRow } from './utils';
+import { Terminal } from 'xterm'
+import { countLines, offsetToColRow, isIncompleteInput } from './utils';
 
 interface ITermSize {
     cols: number;
@@ -9,10 +9,10 @@ interface ITermSize {
 interface IActivePrompt {
     prompt?: string;
     continuationPrompt?: string;
+    resolve?: PromiseFulfilledResult<string>;
 }
 
-interface IOptions extends ITerminalOptions {
-    prompt?: IActivePrompt;
+interface IOptions {
 }
 
 class LocalTerminal {
@@ -32,16 +32,16 @@ class LocalTerminal {
             rows: term.rows
         }
 
-        this._activePrompt = option.prompt
+        this._activePrompt = null
 
         this.init()
     }
 
-    init() {
+    private init() {
         this.term.onData((data: string) => this.handleInputData(data))
     }
 
-    handleInputData(data: string) {
+    private handleInputData(data: string) {
         // if data look like a pasted input.
         if (data.length > 3 && data.charCodeAt(0) !== 0x1b) {
             const _data = data.replace(/[\r\n]+/g, "\r");
@@ -53,7 +53,7 @@ class LocalTerminal {
         }
     }
 
-    writeData(data: string) {
+    private writeData(data: string) {
         const ord = data.charCodeAt(0)
 
         if (ord === 0x1b) {
@@ -94,8 +94,14 @@ class LocalTerminal {
         } else if (ord < 32 || ord === 0x7f) {
             switch (data) {
                 case '\r': // Enter
-                    console.log('enter')
+                    if (isIncompleteInput(this._input)) {
+                        this.handleCursorInster('\n')
+                    } else {
+                        // complete
+                        this.handleReadComplete()
+                    }
                     break
+
                 case '\x7F': // Backspace
                     this.handleCursorEarse(true)
                     break
@@ -109,7 +115,7 @@ class LocalTerminal {
     /**
      * cursor move
      */
-    handleCursorMove(dir: number) {
+    private handleCursorMove(dir: number) {
         let num = 0
         if (dir > 0) {
             // right move, if current cursor location equal input length, should not move
@@ -124,7 +130,7 @@ class LocalTerminal {
     /**
      * Earse character at cursor location
      */
-    handleCursorEarse(backspace: boolean) {
+    private handleCursorEarse(backspace: boolean) {
         const { _cursor, _input } = this
         if (backspace) { // cursor need backspace
             if (_cursor <= 0) return
@@ -141,7 +147,7 @@ class LocalTerminal {
     /**
      * Set the new cursor postion
      */
-    setCursor(newCursor: number) {
+    private setCursor(newCursor: number) {
         if (newCursor < 0) {
             newCursor = 0
         }
@@ -187,7 +193,7 @@ class LocalTerminal {
     /**
      * Insert character at cursor location
      */
-    handleCursorInster(data: string) {
+    private handleCursorInster(data: string) {
         const { _cursor, _input } = this
         const newInput = _input.substr(0, _cursor) + data + _input.substr(_cursor)
         this._cursor += data.length
@@ -198,7 +204,7 @@ class LocalTerminal {
     /**
      * Replace input with the new input given
      */
-    setInput(newInput: string, clearInput: boolean = true) {
+    private setInput(newInput: string, clearInput: boolean = true) {
         if (clearInput) {
             // clear current input
             this.clearInput()
@@ -216,7 +222,7 @@ class LocalTerminal {
         // move the cursor to the appropriate row/col
         const newCursor = this.applyPromptOffset(newInput, this._cursor)
         const newLines = countLines(newPrompt, this._termSize.cols)
-        const { col, row } = offsetToColRow(newInput, newCursor, this._termSize.cols)
+        const { col, row } = offsetToColRow(newPrompt, newCursor, this._termSize.cols)
         const moveUpRows = newLines - row - 1
 
         this.term.write('\r')
@@ -230,7 +236,7 @@ class LocalTerminal {
         this._input = newInput
     }
 
-    clearInput() {
+    private clearInput() {
         const currentPrompt = this.applyPrompts(this._input)
         const allRows = countLines(this._input, this._termSize.cols)
         const promptCursor = this.applyPromptOffset(this._input, this._cursor)
@@ -247,18 +253,25 @@ class LocalTerminal {
         }
     }
 
-    applyPrompts(input: string): string {
+    private applyPrompts(input: string): string {
         const prompt = (this._activePrompt || {}).prompt || ''
-        const continuationPrompt = (this._activePrompt || {}).continuationPrompt || '> '
-        return prompt + input.replace(/\n/g, continuationPrompt)
+        const continuationPrompt = (this._activePrompt || {}).continuationPrompt || ''
+        return prompt + input.replace(/\n/g, '\n' + continuationPrompt)
     }
 
-    applyPromptOffset(input: string, offset: number): number {
+    private applyPromptOffset(input: string, offset: number): number {
         const newInput = this.applyPrompts(input.substr(0, offset))
         return newInput.length
     }
 
-    print(message: string) {
+    private handleReadComplete() {
+        // TODO: append history
+
+        this.term.write('\r\n')
+        console.log('complete')
+    }
+
+    public print(message: string) {
         const normInput = message.replace(/[\r\n]+/g, '\n')
         this.term.write(normInput.replace(/\n/g, '\r\n'))
     }

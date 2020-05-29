@@ -5,17 +5,28 @@ import 'xterm/css/xterm.css'
 
 export default { title: 'Terminal' };
 
-export const TerminalWithReact = () => {
+export const ReactDemo = () => {
     const container = useRef(null)
 
     useEffect(() => {
-        const xterm = new Terminal()
-        const local = new LocalTerminal(xterm)
-        console.log('local terminal:', local)
+        const xterm = new Terminal({
+            cursorBlink: true
+        })
+
+        const local = new LocalTerminal(xterm, {
+            // activePrompt: {
+            //     prompt: '~$ '
+            // },
+            // getInput: (input) => {
+            //     local.print('I get command input: ' + input)
+            // }
+        })
+
         if (container.current) {
             xterm.open(container.current)
         }
     }, [])
+
 
     return <div ref={container} />
 }
