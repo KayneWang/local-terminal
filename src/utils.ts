@@ -2,7 +2,7 @@ export function countLines(input: string, maxCols: number): number {
     return offsetToColRow(input, input.length, maxCols).row + 1
 }
 
-export function offsetToColRow(input: string, offset, maxCols: number): { col: number; row: number } {
+export function offsetToColRow(input: string, offset: number, maxCols: number): { col: number; row: number } {
     let col = 0
     let row = 0
 

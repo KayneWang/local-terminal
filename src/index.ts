@@ -9,7 +9,8 @@ interface ITermSize {
 interface IActivePrompt {
     prompt?: string;
     continuationPrompt?: string;
-    resolve?: PromiseFulfilledResult<string>;
+    resolve?: (value: string) => void;
+    reject?: (reason: any) => void;
 }
 
 interface IOptions {
@@ -19,20 +20,21 @@ class LocalTerminal {
     private term: Terminal;
     private _cursor: number;
     private _input: string;
-    private _termSize: ITermSize;
+    private _active: boolean;
     private _activePrompt: IActivePrompt;
+    private _termSize: ITermSize;
 
     constructor(term: Terminal, option: IOptions = {}) {
-        this.term = term;
+        this.term = term
 
-        this._cursor = 0;
-        this._input = "";
+        this._cursor = 0
+        this._input = ""
+        this._active = false
+        this._activePrompt = null
         this._termSize = {
             cols: term.cols,
             rows: term.rows
         }
-
-        this._activePrompt = null
 
         this.init()
     }
@@ -42,6 +44,8 @@ class LocalTerminal {
     }
 
     private handleInputData(data: string) {
+        if (!this._active) return
+
         // if data look like a pasted input.
         if (data.length > 3 && data.charCodeAt(0) !== 0x1b) {
             const _data = data.replace(/[\r\n]+/g, "\r");
@@ -54,16 +58,18 @@ class LocalTerminal {
     }
 
     private writeData(data: string) {
+        if (!this._active) return
+
         const ord = data.charCodeAt(0)
 
         if (ord === 0x1b) {
             switch (data.substr(1)) {
                 case '[A': // Up arrow
-                    // TODO: 上一条历史命令
+                    // TODO: last history command
                     break
 
                 case '[B': // Down arrow
-                    // TODO: 下一条历史命令
+                    // TODO: next history command
                     break
 
                 case '[D': // Left arrow
@@ -104,6 +110,13 @@ class LocalTerminal {
 
                 case '\x7F': // Backspace
                     this.handleCursorEarse(true)
+                    break
+
+                case '\x03': // Ctrl + C
+                    this.term.write('^C\r\n' + ((this._activePrompt || {}).prompt || ""))
+                    this._input = ""
+                    this._cursor = 0
+                    // TODO: history rewind
                     break
             }
         } else {
@@ -238,7 +251,7 @@ class LocalTerminal {
 
     private clearInput() {
         const currentPrompt = this.applyPrompts(this._input)
-        const allRows = countLines(this._input, this._termSize.cols)
+        const allRows = countLines(currentPrompt, this._termSize.cols)
         const promptCursor = this.applyPromptOffset(this._input, this._cursor)
         const { row } = offsetToColRow(currentPrompt, promptCursor, this._termSize.cols)
 
@@ -247,8 +260,8 @@ class LocalTerminal {
             this.term.write('\x1B[E')
         }
 
-        this.term.write('\x1B[K')
-        for (let i = 0; i < allRows; i++) {
+        this.term.write('\r\x1B[K')
+        for (let i = 1; i < allRows; i++) {
             this.term.write('\x1B[F\x1B[K')
         }
     }
@@ -264,16 +277,36 @@ class LocalTerminal {
         return newInput.length
     }
 
-    private handleReadComplete() {
+    public handleReadComplete() {
         // TODO: append history
 
+        if (this._activePrompt) {
+            this._activePrompt.resolve(this._input)
+            this._activePrompt = null
+        }
         this.term.write('\r\n')
-        console.log('complete')
+        this._active = false
     }
 
     public print(message: string) {
         const normInput = message.replace(/[\r\n]+/g, '\n')
         this.term.write(normInput.replace(/\n/g, '\r\n'))
+    }
+
+    public read(prompt: string, continuationPrompt: string = '>') {
+        return new Promise((resolve, reject) => {
+            this.term.write(prompt)
+            this._activePrompt = {
+                prompt: prompt,
+                continuationPrompt: continuationPrompt,
+                resolve: resolve,
+                reject: reject
+            }
+
+            this._active = true
+            this._input = ""
+            this._cursor = 0
+        })
     }
 }
 

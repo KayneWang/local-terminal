@@ -13,19 +13,27 @@ export const ReactDemo = () => {
             cursorBlink: true
         })
 
-        const local = new LocalTerminal(xterm, {
-            // activePrompt: {
-            //     prompt: '~$ '
-            // },
-            // getInput: (input) => {
-            //     local.print('I get command input: ' + input)
-            // }
-        })
+        const local = new LocalTerminal(xterm)
+        LocalTerminalListener(local)
 
         if (container.current) {
             xterm.open(container.current)
         }
     }, [])
+
+    const LocalTerminalListener = (lc) => {
+        lc.read('~ ')
+            .then((input) => {
+                lc.print('local terminal command: ' + input)
+                lc.handleReadComplete()
+
+                // callback the listener
+                LocalTerminalListener(lc)
+            })
+            .catch((err) => {
+                console.error(err)
+            })
+    }
 
 
     return <div ref={container} />
