@@ -1,5 +1,6 @@
 import { Terminal } from 'xterm'
 import { countLines, offsetToColRow, isIncompleteInput } from './utils';
+import { History } from './history'
 
 interface ITermSize {
     cols: number;
@@ -14,6 +15,7 @@ interface IActivePrompt {
 }
 
 interface IOptions {
+    historySize?: number;
 }
 
 class LocalTerminal {
@@ -23,6 +25,7 @@ class LocalTerminal {
     private _active: boolean;
     private _activePrompt: IActivePrompt;
     private _termSize: ITermSize;
+    private history: History;
 
     constructor(term: Terminal, option: IOptions = {}) {
         this.term = term
@@ -35,6 +38,8 @@ class LocalTerminal {
             cols: term.cols,
             rows: term.rows
         }
+
+        this.history = new History(option.historySize || 10)
 
         this.init()
     }
@@ -65,11 +70,24 @@ class LocalTerminal {
         if (ord === 0x1b) {
             switch (data.substr(1)) {
                 case '[A': // Up arrow
-                    // TODO: last history command
+                    if (this.history) {
+                        const value = this.history.getPrevious()
+                        if (value) {
+                            this.setInput(value)
+                            this.setCursor(value.length)
+                        }
+                    }
                     break
 
                 case '[B': // Down arrow
-                    // TODO: next history command
+                    if (this.history) {
+                        let value = this.history.getNext()
+                        if (!value) {
+                            value = ""
+                        }
+                        this.setInput(value)
+                        this.setCursor(value.length)
+                    }
                     break
 
                 case '[D': // Left arrow
@@ -116,7 +134,9 @@ class LocalTerminal {
                     this.term.write('^C\r\n' + ((this._activePrompt || {}).prompt || ""))
                     this._input = ""
                     this._cursor = 0
-                    // TODO: history rewind
+                    if (this.history) {
+                        this.history.rewind()
+                    }
                     break
             }
         } else {
@@ -278,7 +298,9 @@ class LocalTerminal {
     }
 
     public handleReadComplete() {
-        // TODO: append history
+        if (this.history) {
+            this.history.push(this._input)
+        }
 
         if (this._activePrompt) {
             this._activePrompt.resolve(this._input)
