@@ -55,3 +55,9 @@ local.read("~ ")
 ```
 
 ### print(message)
+
+输入命令
+
+### clear()
+
+清屏
