@@ -24,15 +24,24 @@ export const ReactDemo = () => {
     const LocalTerminalListener = (lc) => {
         lc.read('~ ')
             .then((input) => {
-                lc.print('local terminal command: ' + input)
-                lc.handleReadComplete()
-
-                // callback the listener
-                LocalTerminalListener(lc)
+                otherOperation(lc, input)
             })
             .catch((err) => {
                 console.error(err)
             })
+    }
+
+    const otherOperation = (lc, input) => {
+        // add clear command
+        if (input === 'clear') {
+            lc.clear()
+        } else {
+            lc.print('local terminal command: ' + input)
+            lc.handleReadComplete()
+        }
+
+        // continue listening
+        LocalTerminalListener(lc)
     }
 
 

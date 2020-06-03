@@ -315,7 +315,7 @@ class LocalTerminal {
         this.term.write(normInput.replace(/\n/g, '\r\n'))
     }
 
-    public read(prompt: string, continuationPrompt: string = '>') {
+    public read(prompt: string, continuationPrompt: string = '> ') {
         return new Promise((resolve, reject) => {
             this.term.write(prompt)
             this._activePrompt = {
@@ -329,6 +329,10 @@ class LocalTerminal {
             this._input = ""
             this._cursor = 0
         })
+    }
+
+    public clear() {
+        this.term.write('\x1bc')
     }
 }
 
