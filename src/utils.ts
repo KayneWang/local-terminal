@@ -63,3 +63,10 @@ export function isIncompleteInput(input: string) {
 
     return false;
 }
+
+/**
+ * Check tailing whitespace
+ */
+export function hasTailingWhitespace(input: string): boolean {
+    return input.match(/[^\\][ \t]$/m) !== null
+}

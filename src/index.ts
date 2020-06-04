@@ -1,5 +1,5 @@
 import { Terminal } from 'xterm'
-import { countLines, offsetToColRow, isIncompleteInput } from './utils';
+import { countLines, offsetToColRow, isIncompleteInput, hasTailingWhitespace } from './utils';
 import { History } from './history'
 
 interface ITermSize {
@@ -14,8 +14,18 @@ interface IActivePrompt {
     reject?: (reason: any) => void;
 }
 
+export interface AutocompleteHandlerFn {
+    (index: number, tokens: string[]): string[];
+}
+
+interface IAutocompleteHandler {
+    fn: AutocompleteHandlerFn;
+    args?: any[];
+}
+
 interface IOptions {
     historySize?: number;
+    maxAutocompleteEntries?: number;
 }
 
 class LocalTerminal {
@@ -26,6 +36,8 @@ class LocalTerminal {
     private _activePrompt: IActivePrompt;
     private _termSize: ITermSize;
     private history: History;
+    private maxAutocompleteEntries: number;
+    private _autocompleteHandlers: IAutocompleteHandler[];
 
     constructor(term: Terminal, option: IOptions = {}) {
         this.term = term
@@ -38,8 +50,10 @@ class LocalTerminal {
             cols: term.cols,
             rows: term.rows
         }
+        this._autocompleteHandlers = []
 
         this.history = new History(option.historySize || 10)
+        this.maxAutocompleteEntries = option.maxAutocompleteEntries || 100
 
         this.init()
     }
@@ -128,6 +142,16 @@ class LocalTerminal {
 
                 case '\x7F': // Backspace
                     this.handleCursorEarse(true)
+                    break
+
+                case '\t': // TAB
+                    if (this._autocompleteHandlers.length > 0) {
+                        const inputFragment = this._input.substr(0, this._cursor)
+                        const hasTailingSpace = hasTailingWhitespace(inputFragment)
+                        console.log(this._autocompleteHandlers, hasTailingSpace)
+                    } else {
+                        this.handleCursorInster('    ')
+                    }
                     break
 
                 case '\x03': // Ctrl + C
@@ -331,8 +355,17 @@ class LocalTerminal {
         })
     }
 
+    // Clear fullscreen
     public clear() {
         this.term.write('\x1bc')
+    }
+
+    // Register the auto complete handler
+    public addAutocompleteHandler(fn: AutocompleteHandlerFn, ...args: any[]) {
+        this._autocompleteHandlers.push({
+            fn,
+            args
+        })
     }
 }
 

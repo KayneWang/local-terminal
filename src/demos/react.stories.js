@@ -1,5 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { Terminal } from 'xterm'
+/**
+ * When use npm package you should:
+ * import LocalTerminal from 'local-termianl'
+ */
 import LocalTerminal from '../index'
 import 'xterm/css/xterm.css'
 
@@ -15,6 +19,7 @@ export const ReactDemo = () => {
 
         const local = new LocalTerminal(xterm)
         LocalTerminalListener(local)
+        local.addAutocompleteHandler(autocompleteCommonCommands)
 
         if (container.current) {
             xterm.open(container.current)
@@ -42,6 +47,13 @@ export const ReactDemo = () => {
 
         // continue listening
         LocalTerminalListener(lc)
+    }
+
+    const autocompleteCommonCommands = (index, tokens) => {
+        if (index === 0) {
+            return ["cp", "mv", "ls", "chown"]
+        }
+        return []
     }
 
 
