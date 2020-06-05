@@ -1,3 +1,6 @@
+import { parse } from 'shell-quote'
+import { IAutocompleteHandler, AutocompleteHandlerFn } from './index'
+
 export function countLines(input: string, maxCols: number): number {
     return offsetToColRow(input, input.length, maxCols).row + 1
 }
@@ -69,4 +72,57 @@ export function isIncompleteInput(input: string) {
  */
 export function hasTailingWhitespace(input: string): boolean {
     return input.match(/[^\\][ \t]$/m) !== null
+}
+
+/**
+ * Returns the auto-complete candidates for the given input
+ */
+export function collectAutocompleteCandidates(callbacks: IAutocompleteHandler[], input: string): string[] {
+    const tokens: string[] = parse(input)
+    let index = tokens.length - 1
+    let expr = tokens[index] || ""
+
+    if (input.trim() === '') {
+        index = 0
+        expr = ""
+    } else if (hasTailingWhitespace(input)) {
+        index += 1
+        expr = ""
+    }
+
+    const all = callbacks.reduce<string[]>((candidates, { fn, args }) => {
+        try {
+            return candidates.concat(fn(index, tokens, ...args))
+        } catch (error) {
+            console.error('Autocomplete error:', error)
+            return candidates
+        }
+    }, [])
+
+    return all.filter(txt => txt.startsWith(expr))
+}
+
+export function getLastToken(input: string): string {
+    if (input.trim() === '') return ''
+    if (hasTailingWhitespace(input)) return ''
+
+    const tokens: string[] = parse(input)
+    return tokens.pop() || ''
+}
+
+export function getSharedFragment(fragment: string, candidates: string[]): string {
+    if (fragment.length >= candidates[0].length) return fragment
+
+    const oldFragment = fragment
+
+    fragment += candidates[0].slice(fragment.length, fragment.length + 1)
+
+    for (let i = 0; i < candidates.length; i++) {
+        // this is wrong candidate
+        if (!candidates[i].startsWith(oldFragment)) return ''
+
+        if (!candidates[i].startsWith(fragment)) return oldFragment
+    }
+
+    return getSharedFragment(fragment, candidates)
 }

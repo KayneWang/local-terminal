@@ -17,6 +17,7 @@
     "father-build": "^1.18.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "shell-quote": "^1.7.2",
     "xterm": "^4.6.0",
     "xterm-addon-web-links": "^0.4.0"
   },

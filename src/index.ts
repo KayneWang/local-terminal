@@ -1,6 +1,14 @@
 import { Terminal } from 'xterm'
-import { countLines, offsetToColRow, isIncompleteInput, hasTailingWhitespace } from './utils';
+import { countLines, offsetToColRow, isIncompleteInput, hasTailingWhitespace, collectAutocompleteCandidates, getLastToken, getSharedFragment } from './utils';
 import { History } from './history'
+
+interface PromiseFunc {
+    (): Promise<any>;
+}
+
+interface VoidFunc {
+    (): void;
+}
 
 interface ITermSize {
     cols: number;
@@ -15,10 +23,10 @@ interface IActivePrompt {
 }
 
 export interface AutocompleteHandlerFn {
-    (index: number, tokens: string[]): string[];
+    (index: number, tokens: string[], args?: any[]): string[];
 }
 
-interface IAutocompleteHandler {
+export interface IAutocompleteHandler {
     fn: AutocompleteHandlerFn;
     args?: any[];
 }
@@ -148,7 +156,32 @@ class LocalTerminal {
                     if (this._autocompleteHandlers.length > 0) {
                         const inputFragment = this._input.substr(0, this._cursor)
                         const hasTailingSpace = hasTailingWhitespace(inputFragment)
-                        console.log(this._autocompleteHandlers, hasTailingSpace)
+                        const candidates = collectAutocompleteCandidates(this._autocompleteHandlers, inputFragment)
+
+                        candidates.sort()
+
+                        if (candidates.length === 0) {
+                            if (!hasTailingSpace) {
+                                this.handleCursorInster(' ')
+                            }
+                        } else if (candidates.length === 1) {
+                            const lastToken = getLastToken(inputFragment)
+                            this.handleCursorInster(candidates[0].substr(lastToken.length) + ' ')
+                        } else if (candidates.length <= this.maxAutocompleteEntries) {
+                            // get the same input fragment
+                            const sameFragment = getSharedFragment(inputFragment, candidates)
+
+                            if (sameFragment) {
+                                const lastToken = getLastToken(inputFragment)
+                                this.handleCursorInster(sameFragment.substr(lastToken.length))
+                            }
+
+                            this.printAndRestartPrompt(() => {
+                                this.printWide(candidates)
+                            })
+                        } else {
+                            // TODO: more than maximum candidates.
+                        }
                     } else {
                         this.handleCursorInster('    ')
                     }
@@ -332,6 +365,48 @@ class LocalTerminal {
         }
         this.term.write('\r\n')
         this._active = false
+    }
+
+    private printAndRestartPrompt(callback: PromiseFunc | VoidFunc) {
+        const cursor = this._cursor
+
+        // complete the input
+        this.setCursor(this._input.length)
+        this.term.write('\r\n')
+
+        const resume = () => {
+            this._cursor = cursor
+            this.setInput(this._input)
+        }
+
+        const ret = callback()
+        if (ret) {
+            ret.then(resume)
+        } else {
+            resume()
+        }
+    }
+
+    private printWide(items: string[], padding: number = 2) {
+        if (items.length === 0) return this.term.write('\n')
+
+        const itemWide = items.reduce((width, item) => Math.max(width, item.length), 0) + padding
+        const wideCols = Math.floor(this._termSize.cols / itemWide)
+        const wideRows = Math.ceil(items.length / wideCols)
+
+        let i = 0
+        for (let row = 0; row < wideRows; row++) {
+            let rowStr = ''
+
+            for (let col = 0; col < wideCols; col++) {
+                if (i < items.length) {
+                    let item = items[i++]
+                    item += ' '.repeat(itemWide - item.length)
+                    rowStr += item
+                }
+            }
+            this.term.write(`${rowStr}\n`)
+        }
     }
 
     public print(message: string) {
