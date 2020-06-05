@@ -168,14 +168,6 @@ class LocalTerminal {
                             const lastToken = getLastToken(inputFragment)
                             this.handleCursorInster(candidates[0].substr(lastToken.length) + ' ')
                         } else if (candidates.length <= this.maxAutocompleteEntries) {
-                            // get the same input fragment
-                            const sameFragment = getSharedFragment(inputFragment, candidates)
-
-                            if (sameFragment) {
-                                const lastToken = getLastToken(inputFragment)
-                                this.handleCursorInster(sameFragment.substr(lastToken.length))
-                            }
-
                             this.printAndRestartPrompt(() => {
                                 this.printWide(candidates)
                             })
@@ -388,7 +380,7 @@ class LocalTerminal {
     }
 
     private printWide(items: string[], padding: number = 2) {
-        if (items.length === 0) return this.term.write('\n')
+        if (items.length === 0) return this.println('')
 
         const itemWide = items.reduce((width, item) => Math.max(width, item.length), 0) + padding
         const wideCols = Math.floor(this._termSize.cols / itemWide)
@@ -405,13 +397,17 @@ class LocalTerminal {
                     rowStr += item
                 }
             }
-            this.term.write(`${rowStr}\n`)
+            this.println(rowStr)
         }
     }
 
     public print(message: string) {
         const normInput = message.replace(/[\r\n]+/g, '\n')
         this.term.write(normInput.replace(/\n/g, '\r\n'))
+    }
+
+    public println(message: string) {
+        this.print(message + '\n')
     }
 
     public read(prompt: string, continuationPrompt: string = '> ') {

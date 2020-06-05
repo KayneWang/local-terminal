@@ -84,10 +84,10 @@ export function collectAutocompleteCandidates(callbacks: IAutocompleteHandler[],
 
     if (input.trim() === '') {
         index = 0
-        expr = ""
+        expr = ''
     } else if (hasTailingWhitespace(input)) {
         index += 1
-        expr = ""
+        expr = ''
     }
 
     const all = callbacks.reduce<string[]>((candidates, { fn, args }) => {

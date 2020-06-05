@@ -16,6 +16,7 @@
 * 支持 ts
 * 支持多行输入
 * 支持历史命令记录
+* 支持命令自动补全
 
 ## 使用方法
 
@@ -61,3 +62,28 @@ local.read("~ ")
 ### clear()
 
 清屏
+
+### addAutocompleteHandler(index, tokens) -> string[]
+
+* index: 当前自动完成命令下标
+* tokens: 当前请求命令数组
+
+使用 TAB 自动补全命令，该方法需要返回一个命令集合：
+
+``` js
+// 自动补全命令
+function autocompleteCommonCommands(index, tokens) {
+    if (index == 0) return ["cp", "mv", "ls", "chown"];
+    return [];
+}
+
+// 自动补全文件名
+function autocompleteCommonFiles(index, tokens) {
+    if (index == 0) return [];
+    return [".git", ".gitignore", "package.json"];
+}
+
+// Register the handlers
+local.addAutocompleteHandler(autocompleteCommonCommands);
+local.addAutocompleteHandler(autocompleteCommonFiles);
+```

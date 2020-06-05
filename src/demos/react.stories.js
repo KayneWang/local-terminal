@@ -20,6 +20,7 @@ export const ReactDemo = () => {
         const local = new LocalTerminal(xterm)
         LocalTerminalListener(local)
         local.addAutocompleteHandler(autocompleteCommonCommands)
+        local.addAutocompleteHandler(autocompleteCommonFiles)
 
         if (container.current) {
             xterm.open(container.current)
@@ -56,6 +57,10 @@ export const ReactDemo = () => {
         return []
     }
 
+    const autocompleteCommonFiles = (index, tokens) => {
+        if (index == 1) return [".git", ".gitignore", "package.json"];
+        return []
+    }
 
     return <div ref={container} />
 }
