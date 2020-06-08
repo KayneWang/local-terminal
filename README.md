@@ -26,6 +26,15 @@ $ npm install local-terminal
 
 安装完成之后参考 [demo](https://github.com/KayneWang/local-terminal/blob/master/src/demos/react.stories.js) 使用
 
+## Example
+
+仓库克隆下来之后，执行：
+
+``` shell
+$ npm install
+$ npm run storybook
+```
+
 ## API
 
 ### constructor(xterm, option)
@@ -37,7 +46,8 @@ option 的默认配置如下：
 
 ``` 
 {
-    historySize: 10
+    historySize: 10, // 记录历史命令条数
+    maxAutocompleteEntries: 100 // 自动补全命令条数
 }
 ```
 
